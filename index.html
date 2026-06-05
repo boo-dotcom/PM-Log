@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PM Work Log">
+<meta name="application-name" content="PM Work Log">
+<meta name="theme-color" content="#f0b429">
+<link rel="manifest" id="pwa-manifest">
+<link rel="apple-touch-icon" id="pwa-icon">
+<title>PM Work Log</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0d1117; --surface:#161b22; --surface2:#21262d; --border:#30363d;
+    --accent:#f0b429; --accent2:#e07b00; --text:#e6edf3; --text-muted:#7d8590;
+    --text-dim:#484f58; --green:#3fb950; --red:#f85149; --blue:#58a6ff; --radius:8px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:'IBM Plex Sans Thai',sans-serif; background:var(--bg); color:var(--text);
+    min-height:100vh;
+    background-image:radial-gradient(ellipse 80% 50% at 50% -20%,rgba(240,180,41,.08) 0%,transparent 70%);
+  }
+  .header {
+    border-bottom:1px solid var(--border); padding:20px 32px;
+    display:flex; align-items:center; justify-content:space-between;
+    background:rgba(22,27,34,.95); backdrop-filter:blur(10px);
+    position:sticky; top:0; z-index:100;
+  }
+  .header-left { display:flex; align-items:center; gap:14px; }
+  .logo {
+    width:38px; height:38px; background:var(--accent); border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:14px; color:#000;
+  }
+  .header-title { font-size:18px; font-weight:600; }
+  .header-sub { font-size:12px; color:var(--text-muted); margin-top:1px; }
+  .date-badge {
+    font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--text-muted);
+    background:var(--surface2); padding:6px 14px; border-radius:20px; border:1px solid var(--border);
+  }
+  .container {
+    max-width:1100px; margin:0 auto; padding:32px 24px;
+    display:grid; grid-template-columns:400px 1fr; gap:24px; align-items:start;
+  }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  .card-header {
+    padding:18px 24px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; gap:10px; background:var(--surface2);
+  }
+  .card-header-icon {
+    width:28px; height:28px; background:rgba(240,180,41,.12);
+    border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:14px;
+  }
+  .card-title { font-size:14px; font-weight:600; }
+  .card-body { padding:24px; }
+  .form-group { margin-bottom:18px; }
+  .form-label {
+    display:block; font-size:12px; font-weight:500; color:var(--text-muted);
+    margin-bottom:8px; text-transform:uppercase; letter-spacing:.5px;
+  }
+  .required { color:var(--accent); margin-left:3px; }
+  .form-input {
+    width:100%; background:var(--bg); border:1px solid var(--border);
+    border-radius:var(--radius); padding:10px 14px; color:var(--text);
+    font-family:'IBM Plex Sans Thai',sans-serif; font-size:14px;
+    transition:border-color .2s,box-shadow .2s; outline:none;
+  }
+  .form-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(240,180,41,.1); }
+  .form-input::placeholder { color:var(--text-dim); }
+  select.form-input { cursor:pointer; }
+  select.form-input option { background:var(--surface2); }
+  textarea.form-input { resize:vertical; min-height:80px; font-family:'IBM Plex Sans Thai',sans-serif; }
+
+  /* Barcode */
+  .barcode-wrap { display:flex; gap:8px; }
+  .barcode-input-container { flex:1; position:relative; }
+  .barcode-input { padding-right:40px; font-family:'IBM Plex Mono',monospace; font-size:14px; letter-spacing:1px; }
+  .barcode-icon {
+    position:absolute; right:12px; top:50%; transform:translateY(-50%);
+    color:var(--text-dim); pointer-events:none; font-size:16px;
+  }
+  .btn-camera {
+    width:44px; height:44px; background:var(--surface2); border:1px solid var(--border);
+    border-radius:var(--radius); cursor:pointer; font-size:20px;
+    display:flex; align-items:center; justify-content:center; transition:all .2s; flex-shrink:0;
+  }
+  .btn-camera:hover { border-color:var(--accent); background:rgba(240,180,41,.1); }
+  .scan-status { margin-top:6px; font-size:11px; display:flex; align-items:center; gap:5px; }
+  .scan-status.waiting { color:var(--text-dim); }
+  .scan-status.success { color:var(--green); }
+
+  /* Camera modal */
+  .camera-modal {
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,.92);
+    z-index:500; flex-direction:column; align-items:center; justify-content:center; gap:16px;
+  }
+  .camera-modal.open { display:flex; }
+  .camera-frame { position:relative; width:min(90vw,400px); }
+  .camera-frame video { width:100%; border-radius:12px; display:block; }
+  .camera-border {
+    position:absolute; inset:0; border:3px solid var(--accent); border-radius:12px;
+    pointer-events:none; box-shadow:0 0 0 9999px rgba(0,0,0,.5);
+  }
+  .camera-line {
+    position:absolute; left:10%; right:10%; top:50%; height:2px;
+    background:rgba(240,180,41,.8); transform:translateY(-50%); border-radius:2px;
+    animation:scanLine 2s ease-in-out infinite;
+  }
+  @keyframes scanLine { 0%{top:20%} 50%{top:80%} 100%{top:20%} }
+  .camera-btns { display:flex; gap:12px; }
+  .btn-capture {
+    padding:12px 28px; background:var(--accent); border:none; border-radius:8px;
+    font-weight:700; font-size:15px; cursor:pointer; color:#000;
+    font-family:'IBM Plex Sans Thai',sans-serif; transition:all .2s;
+  }
+  .btn-capture:hover { background:var(--accent2); }
+  .btn-cancel-cam {
+    padding:12px 28px; background:var(--surface2); border:1px solid var(--border);
+    border-radius:8px; font-size:14px; cursor:pointer; color:var(--text);
+    font-family:'IBM Plex Sans Thai',sans-serif; transition:all .2s;
+  }
+  .btn-cancel-cam:hover { border-color:var(--red); color:var(--red); }
+
+  .row-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+
+  /* Bank */
+  .bank-group { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:4px; }
+  .bank-option { display:none; }
+  .bank-label {
+    display:flex; align-items:center; justify-content:center;
+    padding:10px 8px; border:1.5px solid var(--border); border-radius:var(--radius);
+    cursor:pointer; font-size:13px; font-weight:700; transition:all .15s; color:var(--text-muted);
+  }
+  .bank-label:hover { border-color:var(--accent); color:var(--text); }
+  #b-scb:checked   ~ .bank-scb   { border-color:#4e2a84; background:rgba(78,42,132,.15);  color:#b48fe8; }
+  #b-uob:checked   ~ .bank-uob   { border-color:#003882; background:rgba(0,56,130,.15);   color:#6fa0e0; }
+  #b-kbank:checked ~ .bank-kbank { border-color:#138f2d; background:rgba(19,143,45,.15);  color:#5cc974; }
+  #b-bay:checked   ~ .bank-bay   { border-color:#ff6600; background:rgba(255,102,0,.15);  color:#ff9955; }
+  #b-ktb:checked   ~ .bank-ktb   { border-color:#009fda; background:rgba(0,159,218,.15);  color:#55ccf5; }
+  #b-baac:checked  ~ .bank-baac  { border-color:#f5a623; background:rgba(245,166,35,.15); color:#f5c96a; }
+
+  /* Status */
+  .status-group { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:4px; }
+  .status-option { display:none; }
+  .status-label {
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    padding:9px 12px; border:1.5px solid var(--border); border-radius:var(--radius);
+    cursor:pointer; font-size:13px; font-weight:500; transition:all .15s; color:var(--text-muted);
+  }
+  .status-label:hover { border-color:var(--accent); color:var(--text); }
+  #s-ok:checked      ~ label[for="s-ok"]      { border-color:var(--green); background:rgba(63,185,80,.1);  color:var(--green); }
+  #s-fix:checked     ~ label[for="s-fix"]     { border-color:#f0b429;      background:rgba(240,180,41,.1); color:var(--accent); }
+  #s-repair:checked  ~ label[for="s-repair"]  { border-color:var(--red);   background:rgba(248,81,73,.1);  color:var(--red); }
+  #s-pending:checked ~ label[for="s-pending"] { border-color:var(--blue);  background:rgba(88,166,255,.1); color:var(--blue); }
+
+  /* Buttons */
+  .btn-submit {
+    width:100%; padding:12px; background:var(--accent); border:none; border-radius:var(--radius);
+    color:#000; font-family:'IBM Plex Sans Thai',sans-serif; font-size:15px; font-weight:700;
+    cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn-submit:hover { background:var(--accent2); transform:translateY(-1px); box-shadow:0 4px 20px rgba(240,180,41,.25); }
+  .btn-clear {
+    width:100%; padding:10px; background:transparent; border:1px solid var(--border);
+    border-radius:var(--radius); color:var(--text-muted); font-family:'IBM Plex Sans Thai',sans-serif;
+    font-size:13px; cursor:pointer; transition:all .2s; margin-top:8px;
+  }
+  .btn-clear:hover { border-color:var(--red); color:var(--red); }
+
+  /* Toast */
+  .toast {
+    position:fixed; bottom:32px; left:50%;
+    transform:translateX(-50%) translateY(80px);
+    background:var(--surface2); border:1px solid var(--border); border-radius:10px;
+    padding:14px 24px; font-size:14px; font-weight:500;
+    display:flex; align-items:center; gap:10px;
+    z-index:999; transition:transform .3s cubic-bezier(.34,1.56,.64,1);
+    box-shadow:0 8px 30px rgba(0,0,0,.4); pointer-events:none;
+  }
+  .toast.show { transform:translateX(-50%) translateY(0); }
+  .toast.success { border-color:var(--green); }
+  .toast.error   { border-color:var(--red); }
+
+  /* Right panel */
+  .right-panel { display:flex; flex-direction:column; gap:16px; }
+  .search-wrap { display:flex; gap:10px; flex-wrap:wrap; }
+  .search-input-wrap { flex:1; min-width:160px; position:relative; }
+  .search-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-dim); pointer-events:none; }
+  .search-input {
+    width:100%; background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius); padding:10px 14px 10px 38px; color:var(--text);
+    font-family:'IBM Plex Sans Thai',sans-serif; font-size:14px; outline:none; transition:border-color .2s;
+  }
+  .search-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(240,180,41,.08); }
+  .search-input::placeholder { color:var(--text-dim); }
+  .filter-select {
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:10px 12px; color:var(--text); font-family:'IBM Plex Sans Thai',sans-serif;
+    font-size:13px; cursor:pointer; outline:none; transition:border-color .2s;
+  }
+  .filter-select:focus { border-color:var(--accent); }
+  .filter-select option { background:var(--surface2); }
+
+  .stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+  .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px; text-align:center; }
+  .stat-num { font-family:'IBM Plex Mono',monospace; font-size:24px; font-weight:600; line-height:1; }
+  .stat-label { font-size:11px; color:var(--text-muted); margin-top:4px; }
+  .stat-card.all .stat-num { color:var(--text); }
+  .stat-card.ok  .stat-num { color:var(--green); }
+  .stat-card.warn .stat-num { color:var(--accent); }
+  .stat-card.bad  .stat-num { color:var(--red); }
+
+  .records-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  .records-header {
+    padding:16px 20px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between; background:var(--surface2);
+  }
+  .record-count { font-size:12px; color:var(--text-muted); font-family:'IBM Plex Mono',monospace; }
+  .table-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; }
+  thead th {
+    padding:10px 14px; text-align:left; font-size:11px; font-weight:600;
+    color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px;
+    border-bottom:1px solid var(--border); background:var(--surface2); white-space:nowrap;
+  }
+  tbody tr { border-bottom:1px solid rgba(48,54,61,.6); transition:background .15s; }
+  tbody tr:hover { background:rgba(240,180,41,.04); }
+  tbody tr:last-child { border-bottom:none; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+  td { padding:11px 14px; font-size:13px; vertical-align:middle; }
+  .td-mono { font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--blue); }
+  .td-date { font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-muted); white-space:nowrap; }
+  .badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }
+  .badge-ok      { background:rgba(63,185,80,.12);  color:var(--green); border:1px solid rgba(63,185,80,.3); }
+  .badge-fix     { background:rgba(240,180,41,.12); color:var(--accent); border:1px solid rgba(240,180,41,.3); }
+  .badge-repair  { background:rgba(248,81,73,.12);  color:var(--red);   border:1px solid rgba(248,81,73,.3); }
+  .badge-pending { background:rgba(88,166,255,.12); color:var(--blue);  border:1px solid rgba(88,166,255,.3); }
+  .btn-del { background:none; border:none; color:var(--text-dim); cursor:pointer; padding:4px 6px; border-radius:4px; transition:color .2s; }
+  .btn-del:hover { color:var(--red); }
+  .empty-state { padding:60px 20px; text-align:center; color:var(--text-dim); }
+  .empty-icon { font-size:36px; margin-bottom:12px; }
+  .btn-export {
+    padding:8px 14px; background:transparent; border:1px solid var(--border);
+    border-radius:var(--radius); color:var(--text-muted); font-family:'IBM Plex Sans Thai',sans-serif;
+    font-size:12px; cursor:pointer; transition:all .2s; display:flex; align-items:center; gap:6px;
+  }
+  .btn-export:hover { border-color:var(--accent); color:var(--accent); }
+  mark { background:rgba(240,180,41,.25); color:var(--accent); border-radius:2px; padding:0 1px; }
+  optgroup { color:var(--text-muted); font-size:11px; }
+  @media(max-width:900px){ .container{grid-template-columns:1fr} .stats-row{grid-template-columns:repeat(2,1fr)} }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <div class="logo">PM</div>
+    <div>
+      <div class="header-title">PM Work Log</div>
+      <div class="header-sub">ระบบบันทึกงานบำรุงรักษาเชิงป้องกัน</div>
+    </div>
+  </div>
+  <div class="date-badge" id="live-clock">—</div>
+</header>
+
+<!-- Camera Modal -->
+<div class="camera-modal" id="camera-modal">
+  <div style="color:#fff;font-size:15px;font-weight:600;">📷 สแกนบาร์โค้ด</div>
+  <div class="camera-frame">
+    <video id="camera-video" autoplay playsinline muted></video>
+    <div class="camera-border"></div>
+    <div class="camera-line"></div>
+  </div>
+  <canvas id="camera-canvas" style="display:none;"></canvas>
+  <div id="camera-status" style="color:var(--text-muted);font-size:13px;min-height:20px;text-align:center;padding:0 20px;"></div>
+  <div class="camera-btns">
+    <button class="btn-capture" id="btn-capture">📸 ถ่ายสแกน</button>
+    <button class="btn-cancel-cam" id="btn-cancel-cam">ยกเลิก</button>
+  </div>
+</div>
+
+<div class="container">
+  <!-- LEFT: Form -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-header-icon">📋</div>
+      <div class="card-title">บันทึกงาน PM</div>
+    </div>
+    <div class="card-body">
+
+      <!-- Barcode -->
+      <div class="form-group">
+        <label class="form-label">บาร์โค้ดตู้<span class="required">*</span></label>
+        <div class="barcode-wrap">
+          <div class="barcode-input-container">
+            <input type="text" id="barcode-input" class="form-input barcode-input"
+              placeholder="พิมพ์บาร์โค้ด หรือกด 📷 สแกน"
+              autocomplete="off" spellcheck="false">
+            <span class="barcode-icon">⎙</span>
+          </div>
+          <button type="button" class="btn-camera" id="btn-open-camera" title="เปิดกล้องสแกน">📷</button>
+        </div>
+        <div class="scan-status waiting" id="scan-status">
+          <span>●</span>&nbsp;พิมพ์บาร์โค้ดได้เลย หรือกด 📷 เปิดกล้องสแกน
+        </div>
+      </div>
+
+      <!-- Bank -->
+      <div class="form-group">
+        <label class="form-label">ธนาคาร<span class="required">*</span></label>
+        <div class="bank-group">
+          <input class="bank-option" type="radio" name="bank" id="b-scb"   value="SCB">
+          <input class="bank-option" type="radio" name="bank" id="b-uob"   value="UOB">
+          <input class="bank-option" type="radio" name="bank" id="b-kbank" value="KBANK">
+          <input class="bank-option" type="radio" name="bank" id="b-bay"   value="BAY">
+          <input class="bank-option" type="radio" name="bank" id="b-ktb"   value="KTB">
+          <input class="bank-option" type="radio" name="bank" id="b-baac"  value="BAAC">
+          <label class="bank-label bank-scb"   for="b-scb">SCB</label>
+          <label class="bank-label bank-uob"   for="b-uob">UOB</label>
+          <label class="bank-label bank-kbank" for="b-kbank">KBANK</label>
+          <label class="bank-label bank-bay"   for="b-bay">BAY</label>
+          <label class="bank-label bank-ktb"   for="b-ktb">KTB</label>
+          <label class="bank-label bank-baac"  for="b-baac">BAAC</label>
+        </div>
+      </div>
+
+      <!-- Cabinet -->
+      <div class="form-group">
+        <label class="form-label">ชื่อ / รหัสตู้<span class="required">*</span></label>
+        <input type="text" id="cabinet-name" class="form-input" placeholder="เช่น MDB-A01, Panel-3B">
+      </div>
+
+      <!-- Date + Time -->
+      <div class="row-2">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">วันที่เข้าทำ<span class="required">*</span></label>
+          <input type="date" id="work-date" class="form-input">
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">เวลา</label>
+          <input type="time" id="work-time" class="form-input">
+        </div>
+      </div>
+
+      <!-- Technician -->
+      <div class="form-group" style="margin-top:18px">
+        <label class="form-label">ช่างผู้ดำเนินการ<span class="required">*</span></label>
+        <input type="text" id="technician" class="form-input" placeholder="ชื่อช่าง">
+      </div>
+
+      <!-- PM Type -->
+      <div class="form-group">
+        <label class="form-label">ประเภทงาน PM</label>
+        <select id="pm-type" class="form-input">
+          <option value="">-- เลือกประเภทงาน --</option>
+          <optgroup label="PM ตามไตรมาส">
+            <option>PM ไตรมาส 1 (Q1)</option>
+            <option>PM ไตรมาส 2 (Q2)</option>
+            <option>PM ไตรมาส 3 (Q3)</option>
+            <option>PM ไตรมาส 4 (Q4)</option>
+          </optgroup>
+          <optgroup label="งาน Maintenance">
+            <option>Maintenance ทั่วไป</option>
+            <option>Maintenance ฉุกเฉิน</option>
+            <option>Maintenance เชิงป้องกัน</option>
+          </optgroup>
+        </select>
+      </div>
+
+      <!-- Status -->
+      <div class="form-group">
+        <label class="form-label">สถานะหลังทำ PM</label>
+        <div>
+          <input class="status-option" type="radio" name="status" id="s-ok"      value="ปกติ">
+          <input class="status-option" type="radio" name="status" id="s-fix"     value="แก้ไขแล้ว">
+          <input class="status-option" type="radio" name="status" id="s-repair"  value="ต้องซ่อม">
+          <input class="status-option" type="radio" name="status" id="s-pending" value="รอดำเนินการ">
+          <div class="status-group">
+            <label class="status-label" for="s-ok">✅ ปกติ</label>
+            <label class="status-label" for="s-fix">🔧 แก้ไขแล้ว</label>
+            <label class="status-label" for="s-repair">🚨 ต้องซ่อม</label>
+            <label class="status-label" for="s-pending">⏳ รอดำเนินการ</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Note -->
+      <div class="form-group">
+        <label class="form-label">หมายเหตุ</label>
+        <textarea id="note" class="form-input" placeholder="รายละเอียดงานที่ทำ, ปัญหาที่พบ..."></textarea>
+      </div>
+
+      <button type="button" class="btn-submit" id="btn-save">💾 บันทึกงาน PM</button>
+      <button type="button" class="btn-clear"  id="btn-clear">ล้างฟอร์ม</button>
+    </div>
+  </div>
+
+  <!-- RIGHT: Records -->
+  <div class="right-panel">
+    <div class="stats-row">
+      <div class="stat-card all"><div class="stat-num" id="stat-all">0</div><div class="stat-label">ทั้งหมด</div></div>
+      <div class="stat-card ok"> <div class="stat-num" id="stat-ok">0</div> <div class="stat-label">ปกติ</div></div>
+      <div class="stat-card warn"><div class="stat-num" id="stat-fix">0</div><div class="stat-label">แก้ไข/รอ</div></div>
+      <div class="stat-card bad"> <div class="stat-num" id="stat-repair">0</div><div class="stat-label">ต้องซ่อม</div></div>
+    </div>
+
+    <div class="search-wrap">
+      <div class="search-input-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-input" class="search-input" placeholder="ค้นหาบาร์โค้ด, ตู้, ช่าง...">
+      </div>
+      <select id="filter-status" class="filter-select">
+        <option value="">สถานะทั้งหมด</option>
+        <option>ปกติ</option><option>แก้ไขแล้ว</option><option>ต้องซ่อม</option><option>รอดำเนินการ</option>
+      </select>
+      <select id="filter-bank" class="filter-select">
+        <option value="">ธนาคารทั้งหมด</option>
+        <option>SCB</option><option>UOB</option><option>KBANK</option>
+        <option>BAY</option><option>KTB</option><option>BAAC</option>
+      </select>
+    </div>
+
+    <div class="records-card">
+      <div class="records-header">
+        <div class="card-title">📂 รายการบันทึก</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="record-count" id="record-count">0 รายการ</span>
+          <button type="button" class="btn-export" id="btn-export">⬇ Export CSV</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>ธนาคาร</th><th>บาร์โค้ด</th><th>ชื่อตู้</th>
+              <th>วันที่</th><th>เวลา</th><th>ผ่านมา</th><th>ช่าง</th><th>ประเภท</th><th>สถานะ</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="records-body"></tbody>
+        </table>
+        <div class="empty-state" id="empty-state">
+          <div class="empty-icon">📭</div>
+          <div style="font-size:14px;">ยังไม่มีรายการบันทึก</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── Storage ─────────────────────────────────────── */
+  var STORAGE_KEY = 'pm-records-v2';
+  var records = [];
+  try { records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch(e) { records = []; }
+
+  function saveStorage() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); } catch(e) {
+      showToast('⚠️ พื้นที่เก็บข้อมูลเต็ม กรุณา Export CSV ก่อน', 'error');
+    }
+  }
+
+  /* ── Clock ───────────────────────────────────────── */
+  function updateClock() {
+    var now = new Date();
+    var d = now.toLocaleDateString('th-TH', { day:'2-digit', month:'short', year:'numeric' });
+    var t = now.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    document.getElementById('live-clock').textContent = d + '  ' + t;
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  function setNow() {
+    var now = new Date();
+    document.getElementById('work-date').value = now.toISOString().slice(0,10);
+    document.getElementById('work-time').value = now.toTimeString().slice(0,5);
+  }
+  setNow();
+
+  /* ── Days ago helper ─────────────────────────────── */
+  function daysAgo(dateStr) {
+    if (!dateStr) return '—';
+    var today = new Date(); today.setHours(0,0,0,0);
+    var d = new Date(dateStr); d.setHours(0,0,0,0);
+    var diff = Math.round((today - d) / 86400000);
+    if (diff === 0) return '<span style="color:var(--green);font-weight:700;font-size:11px;">วันนี้</span>';
+    if (diff === 1) return '<span style="color:var(--accent);font-size:11px;">เมื่อวาน</span>';
+    var color = diff <= 30 ? 'var(--text-muted)' : diff <= 90 ? 'var(--accent)' : 'var(--red)';
+    return '<span style="font-family:IBM Plex Mono,monospace;font-size:12px;color:' + color + '">' + diff + ' วัน</span>';
+  }
+
+  /* ── Escape HTML ─────────────────────────────────── */
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function hl(text, q) {
+    if (!q) return esc(text);
+    return esc(text).replace(new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')','gi'),'<mark>$1</mark>');
+  }
+
+  /* ── Render table ────────────────────────────────── */
+  function renderTable() {
+    var q  = document.getElementById('search-input').value.trim().toLowerCase();
+    var fs = document.getElementById('filter-status').value;
+    var fb = document.getElementById('filter-bank').value;
+    var filtered = records.filter(function(r) {
+      var mq = !q  || [r.barcode,r.cabinet,r.technician,r.pmType,r.bank,r.note].join(' ').toLowerCase().indexOf(q) >= 0;
+      var ms = !fs || r.status === fs;
+      var mb = !fb || r.bank === fb;
+      return mq && ms && mb;
+    });
+    document.getElementById('record-count').textContent = filtered.length + ' รายการ';
+    // แสดง empty-state เฉพาะเมื่อไม่มีข้อมูลเลย
+    var emptyEl = document.getElementById('empty-state');
+    if (records.length === 0) {
+      emptyEl.style.display = 'block';
+      emptyEl.querySelector('div:last-child').textContent = 'ยังไม่มีรายการบันทึก';
+    } else if (filtered.length === 0) {
+      emptyEl.style.display = 'block';
+      emptyEl.querySelector('div:last-child').textContent = 'ไม่พบรายการที่ค้นหา';
+    } else {
+      emptyEl.style.display = 'none';
+    }
+    var sb = {
+      'ปกติ':        '<span class="badge badge-ok">✅ ปกติ</span>',
+      'แก้ไขแล้ว':   '<span class="badge badge-fix">🔧 แก้ไขแล้ว</span>',
+      'ต้องซ่อม':    '<span class="badge badge-repair">🚨 ต้องซ่อม</span>',
+      'รอดำเนินการ': '<span class="badge badge-pending">⏳ รอ</span>',
+      '—':           '<span style="color:var(--text-dim)">—</span>'
+    };
+    var bc = { SCB:'#b48fe8', UOB:'#6fa0e0', KBANK:'#5cc974', BAY:'#ff9955', KTB:'#55ccf5', BAAC:'#f5c96a' };
+    document.getElementById('records-body').innerHTML = filtered.map(function(r, i) {
+      return '<tr>' +
+        '<td style="color:var(--text-dim);font-size:12px">' + (filtered.length - i) + '</td>' +
+        '<td><span style="font-size:12px;font-weight:700;color:' + (bc[r.bank] || 'var(--text-muted)') + '">' + esc(r.bank || '—') + '</span></td>' +
+        '<td class="td-mono">' + hl(r.barcode, q) + '</td>' +
+        '<td>' + hl(r.cabinet, q) + '</td>' +
+        '<td class="td-date">' + esc(r.date) + '</td>' +
+        '<td class="td-date">' + esc(r.time || '—') + '</td>' +
+        '<td>' + daysAgo(r.date) + '</td>' +
+        '<td>' + hl(r.technician, q) + '</td>' +
+        '<td style="font-size:12px;color:var(--text-muted)">' + esc(r.pmType || '—') + '</td>' +
+        '<td>' + (sb[r.status] || esc(r.status)) + '</td>' +
+        '<td><button class="btn-del" data-id="' + r.id + '">✕</button></td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  /* ── Stats ───────────────────────────────────────── */
+  function updateStats() {
+    document.getElementById('stat-all').textContent    = records.length;
+    document.getElementById('stat-ok').textContent     = records.filter(function(r){ return r.status === 'ปกติ'; }).length;
+    document.getElementById('stat-fix').textContent    = records.filter(function(r){ return r.status === 'แก้ไขแล้ว' || r.status === 'รอดำเนินการ'; }).length;
+    document.getElementById('stat-repair').textContent = records.filter(function(r){ return r.status === 'ต้องซ่อม'; }).length;
+  }
+
+  /* ── Save record ─────────────────────────────────── */
+  function saveRecord() {
+    var barcode = document.getElementById('barcode-input').value.trim();
+    var cabinet = document.getElementById('cabinet-name').value.trim();
+    var date    = document.getElementById('work-date').value;
+    var time    = document.getElementById('work-time').value;
+    var tech    = document.getElementById('technician').value.trim();
+    var pmType  = document.getElementById('pm-type').value;
+    var statusEl = document.querySelector('input[name="status"]:checked');
+    var bankEl   = document.querySelector('input[name="bank"]:checked');
+    var note    = document.getElementById('note').value.trim();
+
+    if (!barcode) { showToast('⚠️ กรุณากรอกหรือสแกนบาร์โค้ด', 'error'); return; }
+    if (!bankEl)  { showToast('⚠️ กรุณาเลือกธนาคาร', 'error'); return; }
+    if (!cabinet) { showToast('⚠️ กรุณากรอกชื่อตู้', 'error'); return; }
+    if (!date)    { showToast('⚠️ กรุณาเลือกวันที่', 'error'); return; }
+    if (!tech)    { showToast('⚠️ กรุณากรอกชื่อช่าง', 'error'); return; }
+
+    records.unshift({
+      id: Date.now(),
+      bank: bankEl.value,
+      barcode: barcode,
+      cabinet: cabinet,
+      date: date,
+      time: time,
+      technician: tech,
+      pmType: pmType,
+      status: statusEl ? statusEl.value : '—',
+      note: note
+    });
+    saveStorage();
+    renderTable();
+    updateStats();
+    clearForm();
+    showToast('💾 บันทึกงาน PM สำเร็จ', 'success');
+  }
+
+  /* ── Clear form ──────────────────────────────────── */
+  function clearForm() {
+    document.getElementById('barcode-input').value = '';
+    document.getElementById('cabinet-name').value  = '';
+    document.getElementById('note').value          = '';
+    document.getElementById('pm-type').value       = '';
+    document.querySelectorAll('input[name="status"]').forEach(function(r){ r.checked = false; });
+    document.querySelectorAll('input[name="bank"]').forEach(function(r){ r.checked = false; });
+    var ss = document.getElementById('scan-status');
+    ss.className = 'scan-status waiting';
+    ss.innerHTML = '<span>●</span>&nbsp;พิมพ์บาร์โค้ดได้เลย หรือกด 📷 เปิดกล้องสแกน';
+    setNow();
+  }
+
+  /* ── Delete ──────────────────────────────────────── */
+  document.getElementById('records-body').addEventListener('click', function(e) {
+    var btn = e.target.closest('.btn-del');
+    if (!btn) return;
+    if (!confirm('ยืนยันการลบรายการนี้?')) return;
+    var id = parseInt(btn.getAttribute('data-id'), 10);
+    records = records.filter(function(r){ return r.id !== id; });
+    saveStorage();
+    renderTable();
+    updateStats();
+    showToast('🗑 ลบรายการแล้ว', '');
+  });
+
+  /* ── Camera ──────────────────────────────────────── */
+  var cameraStream = null;
+  var video     = document.getElementById('camera-video');
+  var canvas    = document.getElementById('camera-canvas');
+  var camModal  = document.getElementById('camera-modal');
+  var camStatus = document.getElementById('camera-status');
+  var camBtn    = document.getElementById('btn-open-camera');
+  var quaggaLoaded = false;
+  var quaggaLoading = false;
+
+  // ตรวจสอบว่ารองรับกล้องหรือไม่ (ต้องการ https หรือ localhost)
+  var isSecure = (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+
+  if (!isSecure) {
+    // ซ่อนปุ่มกล้อง แสดง tooltip แทน
+    camBtn.title = 'กล้องใช้ได้เฉพาะเมื่อเปิดผ่าน https';
+    camBtn.style.opacity = '0.35';
+    camBtn.style.cursor  = 'not-allowed';
+    camBtn.addEventListener('click', function() {
+      showToast('📷 กล้องใช้ได้เฉพาะเมื่อเปิดผ่าน https — พิมพ์บาร์โค้ดในช่องได้เลยครับ', 'error');
+    });
+    // อัปเดต hint ในฟอร์ม
+    var ss = document.getElementById('scan-status');
+    ss.innerHTML = '<span>✏️</span>&nbsp;พิมพ์บาร์โค้ดในช่องด้านบนได้เลย (ไฟล์โหลดโดยตรง)';
+  } else {
+    // โหลด Quagga ล่วงหน้าตอน idle
+    function loadQuagga(cb) {
+      if (quaggaLoaded) { cb && cb(); return; }
+      if (quaggaLoading) { setTimeout(function(){ loadQuagga(cb); }, 300); return; }
+      quaggaLoading = true;
+      var s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js';
+      s.onload  = function() { quaggaLoaded = true; cb && cb(); };
+      s.onerror = function() { quaggaLoading = false; camStatus.textContent = '❌ โหลดไลบรารีสแกนไม่ได้ (ต้องมี internet)'; };
+      document.head.appendChild(s);
+    }
+    if ('requestIdleCallback' in window) { requestIdleCallback(function(){ loadQuagga(); }); }
+    else { setTimeout(function(){ loadQuagga(); }, 1000); }
+
+    camBtn.addEventListener('click', function() {
+      camModal.classList.add('open');
+      camStatus.textContent = 'กำลังเปิดกล้อง...';
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } })
+        .then(function(stream) {
+          cameraStream = stream;
+          video.srcObject = stream;
+          camStatus.textContent = 'จ่อกล้องที่บาร์โค้ด แล้วกด "ถ่ายสแกน"';
+          loadQuagga(); // โหลดถ้ายังไม่ได้โหลด
+        })
+        .catch(function(err) {
+          camStatus.textContent = '❌ เปิดกล้องไม่ได้: ' + err.message;
+        });
+    });
+  }
+
+  function closeCamera() {
+    if (cameraStream) { cameraStream.getTracks().forEach(function(t){ t.stop(); }); cameraStream = null; }
+    video.srcObject = null;
+    camModal.classList.remove('open');
+  }
+
+  document.getElementById('btn-cancel-cam').addEventListener('click', closeCamera);
+
+  document.getElementById('btn-capture').addEventListener('click', function() {
+    if (!cameraStream) { camStatus.textContent = '❌ กล้องยังไม่พร้อม'; return; }
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    camStatus.textContent = '🔍 กำลังอ่านบาร์โค้ด...';
+    if (!quaggaLoaded || typeof Quagga === 'undefined') {
+      camStatus.textContent = '⏳ ไลบรารียังโหลดไม่เสร็จ กรุณารอสักครู่แล้วลองอีกครั้ง';
+      loadQuagga(); return;
+    }
+    Quagga.decodeSingle({
+      decoder: { readers: ['code_128_reader','ean_reader','ean_8_reader','code_39_reader','upc_reader','code_39_vin_reader'] },
+      locate: true,
+      src: canvas.toDataURL('image/png')
+    }, function(result) {
+      if (result && result.codeResult && result.codeResult.code) {
+        var code = result.codeResult.code;
+        document.getElementById('barcode-input').value = code;
+        var ss = document.getElementById('scan-status');
+        ss.className = 'scan-status success';
+        ss.innerHTML = '✅ สแกนสำเร็จ: ' + esc(code);
+        showToast('✅ สแกนบาร์โค้ด: ' + code, 'success');
+        closeCamera();
+      } else {
+        camStatus.textContent = '⚠️ อ่านบาร์โค้ดไม่ได้ — ลองถ่ายใหม่ให้ชัดขึ้น หรือปิดแล้วพิมพ์เองในช่อง';
+      }
+    });
+  });
+
+  /* ── Export CSV ──────────────────────────────────── */
+  function exportCSV() {
+    if (!records.length) { showToast('⚠️ ไม่มีข้อมูลสำหรับ Export', 'error'); return; }
+    var header = ['ลำดับ','ธนาคาร','บาร์โค้ด','ชื่อตู้','วันที่','เวลา','ผ่านมา(วัน)','ช่าง','ประเภทงาน','สถานะ','หมายเหตุ'];
+    var rows = records.map(function(r, i) {
+      var diff = r.date ? Math.round((new Date() - new Date(r.date)) / 86400000) : '';
+      return [i+1, r.bank, r.barcode, r.cabinet, r.date, r.time, diff, r.technician, r.pmType, r.status, r.note];
+    });
+    var csv = '\uFEFF' + [header].concat(rows).map(function(row) {
+      return row.map(function(c){ return '"' + String(c || '').replace(/"/g,'""') + '"'; }).join(',');
+    }).join('\n');
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    a.download = 'PM_Log_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+    showToast('⬇ Export CSV สำเร็จ', 'success');
+  }
+
+  /* ── Toast ───────────────────────────────────────── */
+  function showToast(msg, type) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast' + (type ? ' ' + type : '');
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(function(){ t.classList.remove('show'); }, 3000);
+  }
+
+  /* ── Event listeners ─────────────────────────────── */
+  document.getElementById('btn-save').addEventListener('click',   saveRecord);
+  document.getElementById('btn-clear').addEventListener('click',  clearForm);
+  document.getElementById('btn-export').addEventListener('click', exportCSV);
+  document.getElementById('search-input').addEventListener('input',  renderTable);
+  document.getElementById('filter-status').addEventListener('change', renderTable);
+  document.getElementById('filter-bank').addEventListener('change',   renderTable);
+
+
+  /* ── PWA Setup ───────────────────────────────────── */
+  (function() {
+    // Generate inline manifest as blob URL
+    var manifest = {
+      name: 'PM Work Log',
+      short_name: 'PM Log',
+      description: 'ระบบบันทึกงาน PM บำรุงรักษาเชิงป้องกัน',
+      start_url: './',
+      display: 'standalone',
+      background_color: '#0d1117',
+      theme_color: '#f0b429',
+      orientation: 'any',
+      icons: [
+        {
+          src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%23f0b429'/%3E%3Ctext x='96' y='130' text-anchor='middle' font-size='96' font-family='monospace' font-weight='bold' fill='%23000'%3EPM%3C/text%3E%3C/svg%3E",
+          sizes: '192x192', type: 'image/svg+xml', purpose: 'any maskable'
+        },
+        {
+          src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%23f0b429'/%3E%3Ctext x='256' y='340' text-anchor='middle' font-size='256' font-family='monospace' font-weight='bold' fill='%23000'%3EPM%3C/text%3E%3C/svg%3E",
+          sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable'
+        }
+      ]
+    };
+    var blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
+    var manifestURL = URL.createObjectURL(blob);
+    document.getElementById('pwa-manifest').href = manifestURL;
+
+    // Apple touch icon (inline SVG as data URL)
+    document.getElementById('pwa-icon').href = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%23f0b429'/%3E%3Ctext x='96' y='130' text-anchor='middle' font-size='96' font-family='monospace' font-weight='bold' fill='%23000'%3EPM%3C/text%3E%3C/svg%3E";
+
+    // Service Worker (cache-first for offline)
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+      var swCode = "var CACHE='pm-v1';self.addEventListener('install',function(e){e.waitUntil(caches.open(CACHE).then(function(c){return c.addAll([self.location.pathname]);}));self.skipWaiting();});self.addEventListener('activate',function(e){self.clients.claim();});self.addEventListener('fetch',function(e){e.respondWith(caches.match(e.request).then(function(r){return r||fetch(e.request);}));});";
+      var swBlob = new Blob([swCode], {type:'text/javascript'});
+      var swURL  = URL.createObjectURL(swBlob);
+      navigator.serviceWorker.register(swURL).catch(function(){});
+    }
+
+    // Install prompt (Android/Desktop Chrome)
+    var deferredPrompt = null;
+    var banner = document.getElementById('install-banner');
+    window.addEventListener('beforeinstallprompt', function(e) {
+      e.preventDefault();
+      deferredPrompt = e;
+      banner.style.display = 'flex';
+    });
+    document.getElementById('btn-install').addEventListener('click', function() {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function(){ deferredPrompt = null; banner.style.display = 'none'; });
+    });
+    document.getElementById('btn-dismiss-install').addEventListener('click', function() {
+      banner.style.display = 'none';
+    });
+
+    // iOS Safari install hint
+    var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    var isStandalone = navigator.standalone === true;
+    var shownBefore  = localStorage.getItem('pm-ios-hint');
+    if (isIOS && !isStandalone && !shownBefore && location.protocol === 'https:') {
+      setTimeout(function() {
+        var hint = document.createElement('div');
+        hint.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:200;background:linear-gradient(135deg,#1a1f2e,#21262d);border-top:1px solid #f0b429;padding:16px 20px;display:flex;align-items:flex-start;gap:12px;box-shadow:0 -4px 20px rgba(0,0,0,.4);';
+        hint.innerHTML = '<div style="font-size:26px">📱</div><div style="flex:1"><div style="font-weight:700;font-size:14px;color:#e6edf3;">ติดตั้งเป็นแอปบน iPhone</div><div style="font-size:12px;color:#7d8590;margin-top:4px;line-height:1.6;">กด <span style="color:#58a6ff;font-weight:700">Share ⬆️</span> แล้วเลือก <span style="color:#58a6ff;font-weight:700">Add to Home Screen</span></div></div><button style="padding:8px;background:transparent;border:none;cursor:pointer;color:#7d8590;font-size:18px;" id="ios-close">✕</button>';
+        hint.querySelector('#ios-close').addEventListener('click', function(){ hint.remove(); localStorage.setItem('pm-ios-hint','1'); });
+        document.body.appendChild(hint);
+        localStorage.setItem('pm-ios-hint','1');
+      }, 3000);
+    }
+  })();
+
+  /* ── Init ────────────────────────────────────────── */
+  renderTable();
+  updateStats();
+})();
+</script>
+
+<!-- PWA Install Banner -->
+<div id="install-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;
+  background:linear-gradient(135deg,#1a1f2e,#21262d);border-top:1px solid #f0b429;
+  padding:16px 20px;display:none;align-items:center;gap:12px;box-shadow:0 -4px 20px rgba(0,0,0,.4);">
+  <div style="font-size:28px;">📱</div>
+  <div style="flex:1">
+    <div style="font-weight:700;font-size:14px;color:#e6edf3;">ติดตั้งเป็นแอปบนมือถือ</div>
+    <div style="font-size:12px;color:#7d8590;margin-top:2px;">ใช้งานได้เหมือนแอปจริง ไม่ต้องเปิด browser</div>
+  </div>
+  <button id="btn-install" style="padding:10px 18px;background:#f0b429;border:none;border-radius:8px;
+    font-weight:700;font-size:13px;cursor:pointer;color:#000;font-family:inherit;white-space:nowrap;">
+    ติดตั้ง
+  </button>
+  <button id="btn-dismiss-install" style="padding:8px;background:transparent;border:none;cursor:pointer;
+    color:#7d8590;font-size:18px;line-height:1;">✕</button>
+</div>
+
+</body>
+</html>
